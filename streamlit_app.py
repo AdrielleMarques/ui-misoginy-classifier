@@ -1,26 +1,31 @@
 import streamlit as st
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from huggingface_hub import hf_hub_download
 import torch
 import numpy as np
 import json
 from pathlib import Path
 from torch.nn.functional import softmax
 
-MODEL_PATH = "./modelo"
+MODEL_PATH = "adriellemarques/bertimbau-large-pt-misoginia-multiclass"
 
 
 def load_label_mapping(model_path: str) -> dict:
-	mapping_file = Path(model_path) / "label_mapping.json"
-	if mapping_file.exists():
-		with open(mapping_file, encoding="utf-8") as f:
-			data = json.load(f)
-		return {int(k): v for k, v in data["id2label"].items()}
-	return {}
+	try:
+		mapping_file = hf_hub_download(repo_id=model_path, filename="label_mapping.json")
+	except Exception:
+		mapping_file = Path(model_path) / "label_mapping.json"
+		if not mapping_file.exists():
+			return {}
+
+	with open(mapping_file, encoding="utf-8") as f:
+		data = json.load(f)
+	return {int(k): v for k, v in data["id2label"].items()}
 
 
 @st.cache_resource
 def load_model():
-	tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+	tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, use_fast=False)
 	model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 	model.to(device)
